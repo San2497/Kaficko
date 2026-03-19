@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'http://lmpss3.dev.spsejecna.net/procedure.php';
+    const API_BASE = 'https://crm.skch.cz/ajax0/procedure.php';
     
     // DOM Elements
     const userSelect = document.getElementById('userSelect');
