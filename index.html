@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kafíčko Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Kafíčko</h1>
+            <p>Zaznamenej si svou dávku energie</p>
+        </header>
+
+        <main class="app-main">
+            <!-- User Selection -->
+            <section class="user-section">
+                <label for="userSelect">Kdo dnes pije?</label>
+                <div class="select-wrapper">
+                    <select id="userSelect" required>
+                        <option value="" disabled selected>Načítání uživatelů...</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Drinks List -->
+            <section class="drinks-section" id="drinksContainer">
+                <div class="loading">Načítání nápojů...</div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            <button id="saveBtn" class="btn-primary" disabled>Uložit záznam (0)</button>
+        </footer>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+        Záznam úspěšně uložen! ☕
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
