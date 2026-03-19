@@ -16,6 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let users = [];
     let drinks = [];
     let drinkCounts = {}; // drinkName -> count
+    
+    // Konstanty pro Local Storage
+    const OFFLINE_STORAGE_KEY = 'coffee_offline_records';
+    const DAILY_SUMMARY_KEY = 'coffee_daily_summary';
 
     init();
 
@@ -51,6 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             saveBtn.addEventListener('click', handleSave);
             updateSaveButtonState();
+            
+            // Posluchač pro návrat online
+            window.addEventListener('online', syncOfflineRecords);
+            
+            // Pokus o synchronizaci při načtení (pokud uživatel stránku zavřel offline a otevřel online)
+            syncOfflineRecords();
 
         } catch (error) {
             console.error('Initialization error:', error);
@@ -147,23 +157,37 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const payloadDrinks = drinks.map(drink => ({
+            type: drink.typ,
+            value: drinkCounts[drink.typ]
+        })).filter(d => d.value > 0); // Odesíláme jen ty nápoje, co mají hodnotu > 0
+
         const payload = {
             user: userId,
-            drinks: drinks.map(drink => ({
-                type: drink.typ,
-                value: drinkCounts[drink.typ]
-            }))
+            drinks: payloadDrinks
         };
 
         saveBtn.disabled = true;
-        const originalText = saveBtn.textContent;
         saveBtn.textContent = 'Ukládám...';
+        
+        // Zaznamenáme do denního přehledu ihned
+        updateDailySummary(payloadDrinks);
+
+        // Kontrola, zda jsme online ještě před pokusem o volání
+        if (!navigator.onLine) {
+            saveOfflineRecord(payload);
+            resetCounts();
+            showToast(`Offline! Uloženo lokálně. Dnes: ${getDailySummaryText()}`, true, 5000);
+            saveBtn.disabled = false;
+            updateSaveButtonState();
+            return;
+        }
 
         try {
             const response = await fetch(getApiUrl('saveDrinks'), {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json' // Also tested with default settings just in case
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload)
             });
@@ -172,15 +196,97 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Reset UI
             resetCounts();
-            showToast('Záznam úspěšně uložen!');
+            showToast(`Uloženo! ☕ Dnes: ${getDailySummaryText()}`, false, 5000);
 
         } catch (error) {
-            console.error('Error saving drinks:', error);
-            showToast('Chyba při ukládání!', true);
+            console.error('Error saving drinks, API might be down:', error);
+            // Spadneme do offline uložení, pokud API neodpovídá
+            saveOfflineRecord(payload);
+            resetCounts();
+            showToast(`API nedostupné! Uloženo lokálně. Dnes: ${getDailySummaryText()}`, true, 5000);
         } finally {
             saveBtn.disabled = false;
             updateSaveButtonState();
         }
+    }
+    
+    // --- OFFLINE & SYNC LOGIC ---
+
+    function saveOfflineRecord(payload) {
+        const records = JSON.parse(localStorage.getItem(OFFLINE_STORAGE_KEY) || '[]');
+        records.push({ ...payload, timestamp: Date.now() });
+        localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(records));
+    }
+
+    async function syncOfflineRecords() {
+        if (!navigator.onLine) return;
+        
+        const records = JSON.parse(localStorage.getItem(OFFLINE_STORAGE_KEY) || '[]');
+        if (records.length === 0) return;
+
+        const remainingRecords = [];
+        let syncedCount = 0;
+
+        for (const record of records) {
+            try {
+                const response = await fetch(getApiUrl('saveDrinks'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: record.user, drinks: record.drinks })
+                });
+
+                if (response.ok) {
+                    syncedCount++;
+                } else {
+                    // Pokud odeslání konkrétního záznamu selže, ponecháme si ho pro příště
+                    remainingRecords.push(record);
+                }
+            } catch (e) {
+                // Pokud spojení opět spadne uprostřed cyklu, ponecháme ho
+                remainingRecords.push(record);
+            }
+        }
+
+        // Aktualizujeme localStorage o zbylé nedosynchronizované záznamy
+        localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(remainingRecords));
+        
+        if (syncedCount > 0) {
+            showToast(`Úspěšně synchronizováno ${syncedCount} offline záznamů!`, false, 4000);
+        }
+    }
+    
+    // --- DAILY SUMMARY LOGIC (BONUS) ---
+    
+    function getTodayDateString() {
+        return new Date().toISOString().split('T')[0];
+    }
+
+    function updateDailySummary(consumedDrinks) {
+        const dateStr = getTodayDateString();
+        const stored = JSON.parse(localStorage.getItem(DAILY_SUMMARY_KEY) || '{}');
+
+        // Reset the summary if it's a new day
+        if (stored.date !== dateStr) {
+            stored.date = dateStr;
+            stored.drinks = {};
+        }
+
+        consumedDrinks.forEach(d => {
+            stored.drinks[d.type] = (stored.drinks[d.type] || 0) + d.value;
+        });
+
+        localStorage.setItem(DAILY_SUMMARY_KEY, JSON.stringify(stored));
+    }
+
+    function getDailySummaryText() {
+        const stored = JSON.parse(localStorage.getItem(DAILY_SUMMARY_KEY) || '{}');
+        if (stored.date !== getTodayDateString() || !stored.drinks) return '';
+
+        const summaryItems = Object.entries(stored.drinks)
+            .map(([type, count]) => `${count}x ${type}`)
+            .join(', ');
+
+        return summaryItems;
     }
 
     function resetCounts() {
@@ -233,7 +339,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    function showToast(message, isError = false) {
+    // Upravený showToast podporující delší zobrazení textu a zamezující konfliktům časovačů
+    let toastTimeout;
+    function showToast(message, isError = false, duration = 3000) {
         toast.textContent = message;
         if (isError) {
             toast.classList.add('toast-error');
@@ -243,8 +351,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toast.classList.remove('hidden');
 
-        setTimeout(() => {
+        // Vyčistíme předchozí timeout, aby se nám Toast neschoval moc brzy, pokud klikneme rychle po sobě
+        if(toastTimeout) clearTimeout(toastTimeout);
+        
+        toastTimeout = setTimeout(() => {
             toast.classList.add('hidden');
-        }, 3000);
+        }, duration);
     }
 });
