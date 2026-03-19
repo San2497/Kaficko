@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'https://crm.skch.cz/ajax0/procedure.php';
+    // Použití CORS proxy pro obejití blokace na GitHub Pages
+    const TARGET_API = 'https://crm.skch.cz/ajax0/procedure.php';
+    const PROXY_URL = 'https://corsproxy.io/?';
     
+    // Pomocná funkce pro sestavení správné URL
+    const getApiUrl = (cmd) => `${PROXY_URL}${encodeURIComponent(`${TARGET_API}?cmd=${cmd}`)}`;
+
     // DOM Elements
     const userSelect = document.getElementById('userSelect');
     const drinksContainer = document.getElementById('drinksContainer');
@@ -17,8 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function init() {
         try {
             const [peopleData, typesData] = await Promise.all([
-                fetchData(`${API_BASE}?cmd=getPeopleList`),
-                fetchData(`${API_BASE}?cmd=getTypesList`)
+                fetchData(getApiUrl('getPeopleList')),
+                fetchData(getApiUrl('getTypesList'))
             ]);
 
             users = Object.values(peopleData);
@@ -31,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             renderUsers();
             renderDrinks();
-            
+
             // Re-store last selected user
             const savedUserId = getSavedUser();
             if (savedUserId && users.find(u => u.ID === savedUserId)) {
@@ -74,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'drink-card';
             card.dataset.type = drink.typ;
-            
+
             card.innerHTML = `
                 <div class="drink-info">
                     <span class="drink-name">${drink.typ}</span>
@@ -100,14 +105,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateCount(type, delta, displayEl, btnMinusEl, cardEl) {
         let currentCount = drinkCounts[type];
         let newCount = currentCount + delta;
-        
+
         if (newCount < 0) return;
 
         drinkCounts[type] = newCount;
         displayEl.textContent = newCount;
-        
+
         btnMinusEl.disabled = newCount === 0;
-        
+
         if (newCount > 0) {
             cardEl.classList.add('active');
         } else {
@@ -124,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSaveButtonState() {
         const total = getTotalDrinks();
         const hasUser = userSelect.value !== "";
-        
+
         saveBtn.disabled = !(total > 0 && hasUser);
         saveBtn.textContent = `Uložit záznam (${total})`;
     }
@@ -155,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Ukládám...';
 
         try {
-            const response = await fetch(`${API_BASE}?cmd=saveDrinks`, {
+            const response = await fetch(getApiUrl('saveDrinks'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json' // Also tested with default settings just in case
@@ -167,8 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Reset UI
             resetCounts();
-            showToast('Záznam úspěšně uložen! ☕');
-            
+            showToast('Záznam úspěšně uložen!');
+
         } catch (error) {
             console.error('Error saving drinks:', error);
             showToast('Chyba při ukládání!', true);
@@ -187,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cards.forEach(card => {
             const display = card.querySelector('.count-display');
             const btnMinus = card.querySelector('.btn-minus');
-            
+
             display.textContent = '0';
             btnMinus.disabled = true;
             card.classList.remove('active');
@@ -200,10 +205,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveUserPreference(userId) {
         // LocalStorage
         localStorage.setItem('coffee_selected_user', userId);
-        
+
         // Cookie (expires in 30 days)
         const d = new Date();
-        d.setTime(d.getTime() + (30*24*60*60*1000));
+        d.setTime(d.getTime() + (30 * 24 * 60 * 60 * 1000));
         document.cookie = `coffee_selected_user=${userId};expires=${d.toUTCString()};path=/`;
     }
 
@@ -216,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = "coffee_selected_user=";
         const decodedCookie = decodeURIComponent(document.cookie);
         const ca = decodedCookie.split(';');
-        for(let i = 0; i < ca.length; i++) {
+        for (let i = 0; i < ca.length; i++) {
             let c = ca[i];
             while (c.charAt(0) == ' ') {
                 c = c.substring(1);
@@ -235,9 +240,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             toast.classList.remove('toast-error');
         }
-        
+
         toast.classList.remove('hidden');
-        
+
         setTimeout(() => {
             toast.classList.add('hidden');
         }, 3000);
