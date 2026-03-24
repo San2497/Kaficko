@@ -1,23 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Použití CORS proxy pro obejití blokace na GitHub Pages
     const TARGET_API = 'https://crm.skch.cz/ajax0/procedure.php';
     const PROXY_URL = 'https://corsproxy.io/?';
     
-    // Pomocná funkce pro sestavení správné URL
     const getApiUrl = (cmd) => `${PROXY_URL}${encodeURIComponent(`${TARGET_API}?cmd=${cmd}`)}`;
 
-    // DOM Elements
     const userSelect = document.getElementById('userSelect');
     const drinksContainer = document.getElementById('drinksContainer');
     const saveBtn = document.getElementById('saveBtn');
     const toast = document.getElementById('toast');
 
-    // State
     let users = [];
     let drinks = [];
-    let drinkCounts = {}; // drinkName -> count
+    let drinkCounts = {}; 
     
-    // Konstanty pro Local Storage
     const OFFLINE_STORAGE_KEY = 'coffee_offline_records';
     const DAILY_SUMMARY_KEY = 'coffee_daily_summary';
 
@@ -33,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
             users = Object.values(peopleData);
             drinks = Object.values(typesData);
 
-            // Initialize counts
             drinks.forEach(drink => {
                 drinkCounts[drink.typ] = 0;
             });
@@ -41,13 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
             renderUsers();
             renderDrinks();
 
-            // Re-store last selected user
             const savedUserId = getSavedUser();
             if (savedUserId && users.find(u => u.ID === savedUserId)) {
                 userSelect.value = savedUserId;
             }
 
-            // Events
             userSelect.addEventListener('change', (e) => {
                 saveUserPreference(e.target.value);
                 updateSaveButtonState();
@@ -56,10 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveBtn.addEventListener('click', handleSave);
             updateSaveButtonState();
             
-            // Posluchač pro návrat online
             window.addEventListener('online', syncOfflineRecords);
-            
-            // Pokus o synchronizaci při načtení (pokud uživatel stránku zavřel offline a otevřel online)
             syncOfflineRecords();
 
         } catch (error) {
@@ -160,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const payloadDrinks = drinks.map(drink => ({
             type: drink.typ,
             value: drinkCounts[drink.typ]
-        })).filter(d => d.value > 0); // Odesíláme jen ty nápoje, co mají hodnotu > 0
+        })).filter(d => d.value > 0);
 
         const payload = {
             user: userId,
@@ -170,10 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Ukládám...';
         
-        // Zaznamenáme do denního přehledu ihned
         updateDailySummary(payloadDrinks);
 
-        // Kontrola, zda jsme online ještě před pokusem o volání
         if (!navigator.onLine) {
             saveOfflineRecord(payload);
             resetCounts();
@@ -194,13 +181,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) throw new Error('Failed to save');
 
-            // Reset UI
             resetCounts();
-            showToast(`Uloženo! ☕ Dnes: ${getDailySummaryText()}`, false, 5000);
+            showToast(`Uloženo! Dnes: ${getDailySummaryText()}`, false, 5000);
 
         } catch (error) {
             console.error('Error saving drinks, API might be down:', error);
-            // Spadneme do offline uložení, pokud API neodpovídá
             saveOfflineRecord(payload);
             resetCounts();
             showToast(`API nedostupné! Uloženo lokálně. Dnes: ${getDailySummaryText()}`, true, 5000);
@@ -210,8 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // --- OFFLINE & SYNC LOGIC ---
-
     function saveOfflineRecord(payload) {
         const records = JSON.parse(localStorage.getItem(OFFLINE_STORAGE_KEY) || '[]');
         records.push({ ...payload, timestamp: Date.now() });
@@ -238,24 +221,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     syncedCount++;
                 } else {
-                    // Pokud odeslání konkrétního záznamu selže, ponecháme si ho pro příště
                     remainingRecords.push(record);
                 }
             } catch (e) {
-                // Pokud spojení opět spadne uprostřed cyklu, ponecháme ho
                 remainingRecords.push(record);
             }
         }
 
-        // Aktualizujeme localStorage o zbylé nedosynchronizované záznamy
         localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(remainingRecords));
         
         if (syncedCount > 0) {
             showToast(`Úspěšně synchronizováno ${syncedCount} offline záznamů!`, false, 4000);
         }
     }
-    
-    // --- DAILY SUMMARY LOGIC (BONUS) ---
     
     function getTodayDateString() {
         return new Date().toISOString().split('T')[0];
@@ -265,7 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateStr = getTodayDateString();
         const stored = JSON.parse(localStorage.getItem(DAILY_SUMMARY_KEY) || '{}');
 
-        // Reset the summary if it's a new day
         if (stored.date !== dateStr) {
             stored.date = dateStr;
             stored.drinks = {};
@@ -307,23 +284,17 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSaveButtonState();
     }
 
-    // Storage Managers
     function saveUserPreference(userId) {
-        // LocalStorage
         localStorage.setItem('coffee_selected_user', userId);
-
-        // Cookie (expires in 30 days)
         const d = new Date();
         d.setTime(d.getTime() + (30 * 24 * 60 * 60 * 1000));
         document.cookie = `coffee_selected_user=${userId};expires=${d.toUTCString()};path=/`;
     }
 
     function getSavedUser() {
-        // Try localStorage first
         let userId = localStorage.getItem('coffee_selected_user');
         if (userId) return userId;
 
-        // Try Cookie fallback
         const name = "coffee_selected_user=";
         const decodedCookie = decodeURIComponent(document.cookie);
         const ca = decodedCookie.split(';');
@@ -339,7 +310,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // Upravený showToast podporující delší zobrazení textu a zamezující konfliktům časovačů
     let toastTimeout;
     function showToast(message, isError = false, duration = 3000) {
         toast.textContent = message;
@@ -351,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toast.classList.remove('hidden');
 
-        // Vyčistíme předchozí timeout, aby se nám Toast neschoval moc brzy, pokud klikneme rychle po sobě
         if(toastTimeout) clearTimeout(toastTimeout);
         
         toastTimeout = setTimeout(() => {
