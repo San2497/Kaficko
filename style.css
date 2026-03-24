@@ -211,6 +211,34 @@ select:focus {
     color: var(--text-main);
 }
 
+/* Denní přehled */
+.summary-section {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    margin-top: 8px;
+    margin-bottom: 20px;
+}
+
+.summary-section h2 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.summary-content {
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--primary);
+    line-height: 1.8;
+}
+
 .app-footer {
     position: fixed;
     bottom: 0;
