@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             renderUsers();
             renderDrinks();
+            renderDailySummary(); // Vykreslení přehledu při načtení
 
             const savedUserId = getSavedUser();
             if (savedUserId && users.find(u => u.ID === savedUserId)) {
@@ -160,11 +161,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Ukládám...';
         
         updateDailySummary(payloadDrinks);
+        renderDailySummary(); // Aktualizace UI
 
         if (!navigator.onLine) {
             saveOfflineRecord(payload);
             resetCounts();
-            showToast(`Offline! Uloženo lokálně. Dnes: ${getDailySummaryText()}`, true, 5000);
+            showToast('Offline! Záznam byl uložen lokálně.', true, 4000);
             saveBtn.disabled = false;
             updateSaveButtonState();
             return;
@@ -182,13 +184,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Failed to save');
 
             resetCounts();
-            showToast(`Uloženo! Dnes: ${getDailySummaryText()}`, false, 5000);
+            showToast('Záznam úspěšně uložen!', false, 3000);
 
         } catch (error) {
             console.error('Error saving drinks, API might be down:', error);
             saveOfflineRecord(payload);
             resetCounts();
-            showToast(`API nedostupné! Uloženo lokálně. Dnes: ${getDailySummaryText()}`, true, 5000);
+            showToast('API nedostupné. Záznam uložen lokálně.', true, 4000);
         } finally {
             saveBtn.disabled = false;
             updateSaveButtonState();
@@ -264,6 +266,18 @@ document.addEventListener('DOMContentLoaded', () => {
             .join(', ');
 
         return summaryItems;
+    }
+
+    function renderDailySummary() {
+        const summaryContainer = document.getElementById('dailySummaryContainer');
+        if (!summaryContainer) return;
+
+        const summaryText = getDailySummaryText();
+        if (summaryText) {
+            summaryContainer.innerHTML = summaryText.split(', ').join('<br>');
+        } else {
+            summaryContainer.textContent = 'Zatím prázdno...';
+        }
     }
 
     function resetCounts() {
