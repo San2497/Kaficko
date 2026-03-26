@@ -6,8 +6,8 @@
 
 body {
     font-family: system-ui, -apple-system, sans-serif;
-    background-color: #f9f9f9;
-    color: #333;
+    background-color: #f4f4f6;
+    color: #2c3e50;
     line-height: 1.5;
 }
 
@@ -15,7 +15,6 @@ body {
     max-width: 600px;
     margin: 0 auto;
     padding: 20px;
-    background: #fff;
     min-height: 100vh;
 }
 
@@ -24,22 +23,38 @@ header {
     margin-bottom: 30px;
 }
 
+h1 {
+    color: #1a252f;
+}
+
 .section {
-    margin-bottom: 20px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e1e4e8;
+    margin-bottom: 15px;
 }
 
 label {
     display: block;
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    color: #5c6a79;
 }
 
 select {
     width: 100%;
     padding: 12px;
     font-size: 16px;
-    border: 1px solid #ccc;
+    border: 1px solid #cbd0d6;
     border-radius: 8px;
+    background-color: #fafbfc;
+}
+
+.drinks-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .drink-card {
@@ -47,14 +62,13 @@ select {
     justify-content: space-between;
     align-items: center;
     padding: 15px;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    background: #fafafa;
+    border: 1px solid #e1e4e8;
+    border-radius: 10px;
+    background: #fff;
 }
 
 .drink-card.active {
-    border-color: #007bff;
+    border-color: #3498db;
     background: #f0f7ff;
 }
 
@@ -72,44 +86,55 @@ button {
 .btn-counter {
     width: 36px;
     height: 36px;
-    border: 1px solid #ccc;
+    border: 1px solid #cbd0d6;
     background: #fff;
-    border-radius: 4px;
+    border-radius: 5px;
     font-weight: bold;
+    color: #3498db;
 }
 
 .btn-counter:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+    color: #888;
 }
 
 .count-display {
     font-weight: bold;
-    min-width: 20px;
+    min-width: 24px;
     text-align: center;
 }
 
 #saveBtn {
     width: 100%;
-    padding: 15px;
-    background-color: #007bff;
+    padding: 16px;
+    background-color: #3498db;
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-weight: bold;
-    margin-top: 20px;
+    font-size: 1.1rem;
+    margin-top: 15px;
 }
 
 #saveBtn:disabled {
-    background-color: #ccc;
+    background-color: #bdc3c7;
     cursor: not-allowed;
 }
 
 .summary-section {
-    padding: 15px;
-    background: #eee;
-    border-radius: 8px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e1e4e8;
     text-align: center;
+}
+
+.summary-text {
+    margin-top: 10px;
+    color: #3498db;
+    font-weight: bold;
+    line-height: 1.6;
 }
 
 #toast {
@@ -117,14 +142,53 @@ button {
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: #333;
+    background: #2c3e50;
     color: #fff;
-    padding: 10px 20px;
+    padding: 12px 24px;
     border-radius: 20px;
     transition: opacity 0.3s;
+    z-index: 1000;
 }
 
 .hidden {
     opacity: 0;
     pointer-events: none;
+}
+
+/* =====================================
+   ROZLOŽENÍ PRO PC A TABLETY
+   ===================================== */
+@media (min-width: 800px) {
+    .container {
+        max-width: 900px; /* Širší zobrazení pro PC */
+    }
+
+    header {
+        text-align: left;
+    }
+
+    .layout-grid {
+        display: grid;
+        grid-template-columns: 280px 1fr; /* 2 sloupce: 280px levý, zbytek pravý */
+        gap: 30px;
+        align-items: start;
+    }
+
+    .sidebar {
+        position: sticky;
+        top: 20px; /* Panel se bude držet nahoře při scrollování */
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .sidebar .section, .sidebar #saveBtn {
+        margin: 0; /* Zrušíme mezery z mobilního zobrazení */
+    }
+
+    .drinks-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* Mřížka pro nápoje */
+        gap: 15px;
+    }
 }
