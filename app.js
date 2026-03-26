@@ -59,9 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 els.drinks.appendChild(card);
             });
 
+            // Při změně uživatele rovnou aktualizujeme i výpis jeho denního skóre
             els.user.onchange = (e) => {
                 localStorage.setItem('coffee_user', e.target.value);
                 updateSaveBtn();
+                renderSummary(); 
             };
 
             els.save.onclick = handleSave;
@@ -90,14 +92,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleSave() {
+        const userId = els.user.value;
         const payloadDrinks = drinksData
             .map(d => ({ type: d.typ, value: counts[d.typ] }))
             .filter(d => d.value > 0);
 
-        const payload = { user: els.user.value, drinks: payloadDrinks };
+        const payload = { user: userId, drinks: payloadDrinks };
         
         els.save.disabled = true;
-        saveSummary(payloadDrinks);
+        saveSummary(userId, payloadDrinks);
         renderSummary();
 
         if (!navigator.onLine) {
@@ -146,29 +149,46 @@ document.addEventListener('DOMContentLoaded', () => {
         if (records.length > remaining.length) showToast('Offline záznamy odeslány!');
     }
 
-    // --- Denní přehled ---
-    function saveSummary(drinks) {
+    // --- Denní přehled specifický pro uživatele ---
+    function saveSummary(userId, drinks) {
         const today = new Date().toISOString().split('T')[0];
-        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","data":{}}');
+        let sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
         
-        if (sum.date !== today) { sum.date = today; sum.data = {}; }
+        // Reset Pokud je nový den
+        if (sum.date !== today) { 
+            sum = { date: today, users: {} }; 
+        }
         
+        // Inicializace objektu pro uživatele, pokud ještě nic nepil
+        if (!sum.users[userId]) {
+            sum.users[userId] = {};
+        }
+
         drinks.forEach(d => {
-            sum.data[d.type] = (sum.data[d.type] || 0) + d.value;
+            sum.users[userId][d.type] = (sum.users[userId][d.type] || 0) + d.value;
         });
+        
         localStorage.setItem('coffee_summary', JSON.stringify(sum));
     }
 
     function renderSummary() {
-        const today = new Date().toISOString().split('T')[0];
-        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","data":{}}');
+        const userId = els.user.value;
         
-        if (sum.date !== today || Object.keys(sum.data).length === 0) {
+        if (!userId) {
+            els.summary.textContent = 'Vyberte osobu...';
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
+        
+        // Pokud není dnešní den nebo uživatel nemá žádné nápoje
+        if (sum.date !== today || !sum.users || !sum.users[userId] || Object.keys(sum.users[userId]).length === 0) {
             els.summary.textContent = 'Zatím prázdno...';
             return;
         }
         
-        els.summary.innerHTML = Object.entries(sum.data)
+        els.summary.innerHTML = Object.entries(sum.users[userId])
             .map(([type, count]) => `${count}x ${type}`)
             .join('<br>');
     }
