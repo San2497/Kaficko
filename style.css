@@ -155,12 +155,9 @@ button {
     pointer-events: none;
 }
 
-/* =====================================
-   ROZLOŽENÍ PRO PC A TABLETY
-   ===================================== */
 @media (min-width: 800px) {
     .container {
-        max-width: 900px; /* Širší zobrazení pro PC */
+        max-width: 900px;
     }
 
     header {
@@ -169,26 +166,26 @@ button {
 
     .layout-grid {
         display: grid;
-        grid-template-columns: 280px 1fr; /* 2 sloupce: 280px levý, zbytek pravý */
+        grid-template-columns: 280px 1fr;
         gap: 30px;
         align-items: start;
     }
 
     .sidebar {
         position: sticky;
-        top: 20px; /* Panel se bude držet nahoře při scrollování */
+        top: 20px; 
         display: flex;
         flex-direction: column;
         gap: 15px;
     }
 
     .sidebar .section, .sidebar #saveBtn {
-        margin: 0; /* Zrušíme mezery z mobilního zobrazení */
+        margin: 0;
     }
 
     .drinks-section {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* Mřížka pro nápoje */
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); 
         gap: 15px;
     }
 }
