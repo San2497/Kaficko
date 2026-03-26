@@ -2,49 +2,215 @@
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kafíčko Tracker</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafíčko</title>
+    <style>
+        /* Zcela zjednodušené minimalistické CSS */
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f4f4f5; color: #18181b; }
+        h1 { text-align: center; color: #3f3f46; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        select, button { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e4e4e7; font-size: 16px; outline: none; }
+        label { font-weight: 600; font-size: 14px; color: #71717a; display: block; margin-bottom: 8px; }
+        
+        button.primary { background: #8b5cf6; color: white; border: none; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.2s; }
+        button.primary:disabled { background: #d4d4d8; cursor: not-allowed; }
+        
+        .drink { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f4f4f5; font-weight: 500; }
+        .drink:last-child { border-bottom: none; }
+        
+        .controls { display: flex; align-items: center; gap: 15px; }
+        .controls button { width: 36px; height: 36px; padding: 0; border-radius: 50%; background: #f4f4f5; border: none; cursor: pointer; font-size: 18px; color: #8b5cf6; font-weight: bold; }
+        
+        .summary { color: #8b5cf6; font-weight: 500; line-height: 1.6; }
+        
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #27272a; color: white; padding: 12px 24px; border-radius: 30px; display: none; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; }
+    </style>
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <h1>Kafíčko</h1>
-            <p>Zaznamenej si svou dávku energie</p>
-        </header>
-
-        <main class="app-main">
-            <section class="user-section">
-                <label for="userSelect">Kdo dnes pije?</label>
-                <div class="select-wrapper">
-                    <select id="userSelect" required>
-                        <option value="" disabled selected>Načítání uživatelů...</option>
-                    </select>
-                </div>
-            </section>
-
-            <section class="drinks-section" id="drinksContainer">
-                <div class="loading">Načítání nápojů...</div>
-            </section>
-
-            <section class="summary-section">
-                <h2>Dnešní skóre</h2>
-                <div id="dailySummaryContainer" class="summary-content">
-                    Zatím prázdno...
-                </div>
-            </section>
-
-            <footer class="app-footer">
-                <button id="saveBtn" class="btn-primary" disabled>Uložit záznam (0)</button>
-            </footer>
-        </main>
-    </div>
+    <h1>☕ Kafíčko</h1>
     
-    <div id="toast" class="toast hidden">
-        Záznam úspěšně uložen!
+    <div class="card">
+        <label>KDO DNES PIJE?</label>
+        <select id="userSelect"><option value="">Načítání...</option></select>
     </div>
 
-    <script src="app.js"></script>
+    <div class="card" id="drinksList">
+        <div style="text-align:center; color:#71717a;">Načítání nápojů...</div>
+    </div>
+
+    <div class="card">
+        <label>DNEŠNÍ SKÓRE</label>
+        <div id="summary" class="summary">Zatím prázdno...</div>
+    </div>
+
+    <button id="saveBtn" class="primary" disabled>Uložit záznam (0)</button>
+
+    <div id="toast">Uloženo!</div>
+
+    <script>
+        // --- 1. Nastavení a proměnné ---
+        const API = cmd => `https://corsproxy.io/?${encodeURIComponent(`https://crm.skch.cz/ajax0/procedure.php?cmd=${cmd}`)}`;
+        let drinks = [], counts = {};
+        const qKey = 'kafe_offline', sumKey = 'kafe_sum', usrKey = 'kafe_user';
+
+        // --- 2. Inicializace aplikace ---
+        async function init() {
+            try {
+                // Stažení dat paralelně
+                const [usrRes, drkRes] = await Promise.all([fetch(API('getPeopleList')), fetch(API('getTypesList'))]);
+                const users = Object.values(await usrRes.json());
+                drinks = Object.values(await drkRes.json());
+                
+                // Vykreslení uživatelů
+                document.getElementById('userSelect').innerHTML = `<option value="">Vyberte osobu...</option>` + 
+                    users.map(u => `<option value="${u.ID}">${u.name}</option>`).join('');
+                
+                // Obnova posledního uživatele
+                let savedUser = localStorage.getItem(usrKey);
+                if(savedUser) document.getElementById('userSelect').value = savedUser;
+
+                // Vykreslení zbytku UI a pokus o odeslání starých offline dat
+                renderDrinks();
+                renderSummary();
+                sync();
+                
+                // Posluchače událostí
+                document.getElementById('userSelect').onchange = e => {
+                    localStorage.setItem(usrKey, e.target.value);
+                    updateBtn();
+                };
+                document.getElementById('saveBtn').onclick = save;
+                window.addEventListener('online', sync);
+
+            } catch (e) {
+                document.getElementById('drinksList').innerHTML = '<div style="color:red; text-align:center;">Chyba připojení. Nelze načíst data.</div>';
+            }
+        }
+
+        // --- 3. Vykreslení nápojů ---
+        function renderDrinks() {
+            document.getElementById('drinksList').innerHTML = drinks.map(d => {
+                counts[d.typ] = 0; // Vynulování stavu
+                return `
+                    <div class="drink">
+                        <span>${d.typ}</span>
+                        <div class="controls">
+                            <button onclick="changeCount('${d.typ}', -1)">-</button>
+                            <span id="cnt-${d.typ}">0</span>
+                            <button onclick="changeCount('${d.typ}', 1)">+</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- 4. Logika počítadla ---
+        window.changeCount = (typ, delta) => {
+            if (counts[typ] + delta < 0) return;
+            counts[typ] += delta;
+            document.getElementById(`cnt-${typ}`).innerText = counts[typ];
+            updateBtn();
+        };
+
+        function updateBtn() {
+            const total = Object.values(counts).reduce((a, b) => a + b, 0);
+            const btn = document.getElementById('saveBtn');
+            btn.innerText = `Uložit záznam (${total})`;
+            btn.disabled = total === 0 || !document.getElementById('userSelect').value;
+        }
+
+        // --- 5. Ukládání záznamů ---
+        async function save() {
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            
+            const payload = {
+                user: document.getElementById('userSelect').value,
+                drinks: drinks.map(d => ({ type: d.typ, value: counts[d.typ] })).filter(d => d.value > 0)
+            };
+
+            updateSummary(payload.drinks);
+            
+            if (!navigator.onLine) {
+                queueOffline(payload);
+                resetCounts();
+                showToast('Offline! Uloženo do zálohy.');
+                return;
+            }
+
+            try {
+                await fetch(API('saveDrinks'), { method: 'POST', body: JSON.stringify(payload) });
+                showToast('Úspěšně uloženo!');
+            } catch (e) {
+                queueOffline(payload);
+                showToast('Chyba serveru. Uloženo do zálohy.');
+            }
+            resetCounts();
+        }
+
+        // --- 6. Offline synchronizace ---
+        function queueOffline(payload) {
+            const q = JSON.parse(localStorage.getItem(qKey) || '[]');
+            q.push(payload);
+            localStorage.setItem(qKey, JSON.stringify(q));
+        }
+
+        async function sync() {
+            if (!navigator.onLine) return;
+            let q = JSON.parse(localStorage.getItem(qKey) || '[]');
+            if (!q.length) return;
+            
+            let failed = [];
+            for (let p of q) {
+                try {
+                    const res = await fetch(API('saveDrinks'), { method: 'POST', body: JSON.stringify(p) });
+                    if (!res.ok) failed.push(p);
+                } catch(e) { failed.push(p); }
+            }
+            localStorage.setItem(qKey, JSON.stringify(failed));
+            if (q.length > failed.length) showToast(`Zálohované záznamy byly odeslány.`);
+        }
+
+        // --- 7. Denní přehled ---
+        function updateSummary(consumed) {
+            const today = new Date().toISOString().split('T')[0];
+            let sum = JSON.parse(localStorage.getItem(sumKey) || '{"date":"","drinks":{}}');
+            
+            if (sum.date !== today) sum = { date: today, drinks: {} };
+            
+            consumed.forEach(c => sum.drinks[c.type] = (sum.drinks[c.type] || 0) + c.value);
+            localStorage.setItem(sumKey, JSON.stringify(sum));
+            renderSummary();
+        }
+
+        function renderSummary() {
+            const today = new Date().toISOString().split('T')[0];
+            const sum = JSON.parse(localStorage.getItem(sumKey) || '{"date":"","drinks":{}}');
+            const el = document.getElementById('summary');
+            
+            if (sum.date !== today || !Object.keys(sum.drinks).length) {
+                el.innerText = 'Zatím prázdno...';
+                return;
+            }
+            el.innerHTML = Object.entries(sum.drinks).map(([k, v]) => `${v}x ${k}`).join('<br>');
+        }
+
+        // --- 8. Pomocné funkce ---
+        function resetCounts() {
+            Object.keys(counts).forEach(k => counts[k] = 0);
+            document.querySelectorAll('[id^="cnt-"]').forEach(el => el.innerText = '0');
+            updateBtn();
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+
+        // Spuštění
+        init();
+    </script>
 </body>
 </html>
