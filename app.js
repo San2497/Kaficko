@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('coffee_user');
             if (savedUser) els.user.value = savedUser;
 
+            // Vykreslení nápojů
             drinksData = Object.values(types);
             els.drinks.innerHTML = '';
             
@@ -56,10 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 els.drinks.appendChild(card);
             });
-            
+
+            // Při změně uživatele resetujeme naklikané nápoje a načteme jeho skóre
             els.user.onchange = (e) => {
                 localStorage.setItem('coffee_user', e.target.value);
-                reset();
+                reset(); 
                 renderSummary(); 
             };
 
@@ -110,6 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await fetch(API + 'saveDrinks', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(payload)
             });
             reset();
@@ -135,7 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const remaining = [];
         for (const rec of records) {
             try {
-                const res = await fetch(API + 'saveDrinks', { method: 'POST', body: JSON.stringify(rec) });
+                // OPRAVA: Přidány hlavičky i pro offline synchronizaci
+                const res = await fetch(API + 'saveDrinks', { 
+                    method: 'POST', 
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(rec) 
+                });
                 if (!res.ok) remaining.push(rec);
             } catch {
                 remaining.push(rec);
@@ -147,10 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveSummary(userId, drinks) {
         const today = new Date().toISOString().split('T')[0];
-        const storageKey = 'coffee_summary_' + userId;
+        const storageKey = 'coffee_summary_' + userId; 
         let sum = JSON.parse(localStorage.getItem(storageKey) || '{"date":"","data":{}}');
         
-        // Reset pokud je nový den
         if (sum.date !== today) { 
             sum = { date: today, data: {} }; 
         }
