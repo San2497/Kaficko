@@ -1,191 +1,211 @@
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const API = 'https://corsproxy.io/?' + encodeURIComponent('https://crm.skch.cz/ajax0/procedure.php?cmd=');
 
-body {
-    font-family: system-ui, -apple-system, sans-serif;
-    background-color: #f4f4f6;
-    color: #2c3e50;
-    line-height: 1.5;
-}
+    const els = {
+        user: document.getElementById('userSelect'),
+        drinks: document.getElementById('drinksContainer'),
+        save: document.getElementById('saveBtn'),
+        summary: document.getElementById('dailySummaryContainer'),
+        toast: document.getElementById('toast')
+    };
 
-.container {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 20px;
-    min-height: 100vh;
-}
+    let drinksData = [];
+    let counts = {};
 
-header {
-    text-align: center;
-    margin-bottom: 30px;
-}
+    init();
 
-h1 {
-    color: #1a252f;
-}
+    async function init() {
+        try {
+            const [people, types] = await Promise.all([
+                fetch(API + 'getPeopleList').then(r => r.json()),
+                fetch(API + 'getTypesList').then(r => r.json())
+            ]);
 
-.section {
-    background: #fff;
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #e1e4e8;
-    margin-bottom: 15px;
-}
+            // Vykreslení uživatelů
+            let userHtml = '<option value="" disabled selected>Vyberte osobu...</option>';
+            Object.values(people).forEach(u => {
+                userHtml += `<option value="${u.ID}">${u.name}</option>`;
+            });
+            els.user.innerHTML = userHtml;
 
-label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: #5c6a79;
-}
+            const savedUser = localStorage.getItem('coffee_user');
+            if (savedUser) els.user.value = savedUser;
 
-select {
-    width: 100%;
-    padding: 12px;
-    font-size: 16px;
-    border: 1px solid #cbd0d6;
-    border-radius: 8px;
-    background-color: #fafbfc;
-}
+            // Vykreslení nápojů
+            drinksData = Object.values(types);
+            els.drinks.innerHTML = '';
+            
+            drinksData.forEach(d => {
+                counts[d.typ] = 0;
+                
+                const card = document.createElement('div');
+                card.className = 'drink-card';
+                card.innerHTML = `
+                    <span>${d.typ}</span>
+                    <div class="counter-controls">
+                        <button class="btn-counter btn-minus" disabled>-</button>
+                        <span class="count-display">0</span>
+                        <button class="btn-counter btn-plus">+</button>
+                    </div>
+                `;
 
-.drinks-section {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
+                const btnMinus = card.querySelector('.btn-minus');
+                const btnPlus = card.querySelector('.btn-plus');
+                const display = card.querySelector('.count-display');
 
-.drink-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    border: 1px solid #e1e4e8;
-    border-radius: 10px;
-    background: #fff;
-}
+                btnMinus.onclick = () => update(d.typ, -1, display, btnMinus, card);
+                btnPlus.onclick = () => update(d.typ, 1, display, btnMinus, card);
 
-.drink-card.active {
-    border-color: #3498db;
-    background: #f0f7ff;
-}
+                els.drinks.appendChild(card);
+            });
 
-.counter-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
+            // Při změně uživatele rovnou aktualizujeme i výpis jeho denního skóre
+            els.user.onchange = (e) => {
+                localStorage.setItem('coffee_user', e.target.value);
+                updateSaveBtn();
+                renderSummary(); 
+            };
 
-button {
-    cursor: pointer;
-    font-size: 16px;
-}
+            els.save.onclick = handleSave;
+            
+            window.addEventListener('online', syncOffline);
+            syncOffline();
+            renderSummary();
 
-.btn-counter {
-    width: 36px;
-    height: 36px;
-    border: 1px solid #cbd0d6;
-    background: #fff;
-    border-radius: 5px;
-    font-weight: bold;
-    color: #3498db;
-}
-
-.btn-counter:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    color: #888;
-}
-
-.count-display {
-    font-weight: bold;
-    min-width: 24px;
-    text-align: center;
-}
-
-#saveBtn {
-    width: 100%;
-    padding: 16px;
-    background-color: #3498db;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: bold;
-    font-size: 1.1rem;
-    margin-top: 15px;
-}
-
-#saveBtn:disabled {
-    background-color: #bdc3c7;
-    cursor: not-allowed;
-}
-
-.summary-section {
-    padding: 20px;
-    background: #fff;
-    border-radius: 12px;
-    border: 1px solid #e1e4e8;
-    text-align: center;
-}
-
-.summary-text {
-    margin-top: 10px;
-    color: #3498db;
-    font-weight: bold;
-    line-height: 1.6;
-}
-
-#toast {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #2c3e50;
-    color: #fff;
-    padding: 12px 24px;
-    border-radius: 20px;
-    transition: opacity 0.3s;
-    z-index: 1000;
-}
-
-.hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-
-@media (min-width: 800px) {
-    .container {
-        max-width: 900px;
+        } catch (err) {
+            els.drinks.innerHTML = '<div class="section" style="color:red">Chyba načítání. Zkuste to později.</div>';
+        }
     }
 
-    header {
-        text-align: left;
+    function update(type, delta, display, btnMinus, card) {
+        counts[type] += delta;
+        display.textContent = counts[type];
+        btnMinus.disabled = counts[type] === 0;
+        card.classList.toggle('active', counts[type] > 0);
+        updateSaveBtn();
     }
 
-    .layout-grid {
-        display: grid;
-        grid-template-columns: 280px 1fr;
-        gap: 30px;
-        align-items: start;
+    function updateSaveBtn() {
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        els.save.disabled = total === 0 || !els.user.value;
+        els.save.textContent = `Uložit záznam (${total})`;
     }
 
-    .sidebar {
-        position: sticky;
-        top: 20px; 
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
+    async function handleSave() {
+        const userId = els.user.value;
+        const payloadDrinks = drinksData
+            .map(d => ({ type: d.typ, value: counts[d.typ] }))
+            .filter(d => d.value > 0);
+
+        const payload = { user: userId, drinks: payloadDrinks };
+        
+        els.save.disabled = true;
+        saveSummary(userId, payloadDrinks);
+        renderSummary();
+
+        if (!navigator.onLine) {
+            saveOffline(payload);
+            reset();
+            showToast('Offline: Uloženo lokálně');
+            return;
+        }
+
+        try {
+            await fetch(API + 'saveDrinks', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            reset();
+            showToast('Záznam uložen!');
+        } catch (err) {
+            saveOffline(payload);
+            reset();
+            showToast('Chyba serveru: Uloženo lokálně');
+        }
     }
 
-    .sidebar .section, .sidebar #saveBtn {
-        margin: 0;
+    // --- Offline logiky ---
+    function saveOffline(payload) {
+        const records = JSON.parse(localStorage.getItem('coffee_offline') || '[]');
+        records.push(payload);
+        localStorage.setItem('coffee_offline', JSON.stringify(records));
     }
 
-    .drinks-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); 
-        gap: 15px;
+    async function syncOffline() {
+        if (!navigator.onLine) return;
+        const records = JSON.parse(localStorage.getItem('coffee_offline') || '[]');
+        if (!records.length) return;
+
+        const remaining = [];
+        for (const rec of records) {
+            try {
+                const res = await fetch(API + 'saveDrinks', { method: 'POST', body: JSON.stringify(rec) });
+                if (!res.ok) remaining.push(rec);
+            } catch {
+                remaining.push(rec);
+            }
+        }
+        localStorage.setItem('coffee_offline', JSON.stringify(remaining));
+        if (records.length > remaining.length) showToast('Offline záznamy odeslány!');
     }
-}
+
+    // --- Denní přehled specifický pro uživatele ---
+    function saveSummary(userId, drinks) {
+        const today = new Date().toISOString().split('T')[0];
+        let sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
+        
+        // Reset Pokud je nový den
+        if (sum.date !== today) { 
+            sum = { date: today, users: {} }; 
+        }
+        
+        // Inicializace objektu pro uživatele, pokud ještě nic nepil
+        if (!sum.users[userId]) {
+            sum.users[userId] = {};
+        }
+
+        drinks.forEach(d => {
+            sum.users[userId][d.type] = (sum.users[userId][d.type] || 0) + d.value;
+        });
+        
+        localStorage.setItem('coffee_summary', JSON.stringify(sum));
+    }
+
+    function renderSummary() {
+        const userId = els.user.value;
+        
+        if (!userId) {
+            els.summary.textContent = 'Vyberte osobu...';
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
+        
+        // Pokud není dnešní den nebo uživatel nemá žádné nápoje
+        if (sum.date !== today || !sum.users || !sum.users[userId] || Object.keys(sum.users[userId]).length === 0) {
+            els.summary.textContent = 'Zatím prázdno...';
+            return;
+        }
+        
+        els.summary.innerHTML = Object.entries(sum.users[userId])
+            .map(([type, count]) => `${count}x ${type}`)
+            .join('<br>');
+    }
+
+    function reset() {
+        Object.keys(counts).forEach(k => counts[k] = 0);
+        document.querySelectorAll('.drink-card').forEach(card => {
+            card.classList.remove('active');
+            card.querySelector('.count-display').textContent = '0';
+            card.querySelector('.btn-minus').disabled = true;
+        });
+        updateSaveBtn();
+    }
+
+    function showToast(msg) {
+        els.toast.textContent = msg;
+        els.toast.classList.remove('hidden');
+        setTimeout(() => els.toast.classList.add('hidden'), 3000);
+    }
+});
