@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSummary();
 
         } catch (err) {
-            els.drinks.innerHTML = '<p style="color:red">Chyba načítání. Zkuste to později.</p>';
+            els.drinks.innerHTML = '<div class="section" style="color:red">Chyba načítání. Zkuste to později.</div>';
         }
     }
 
