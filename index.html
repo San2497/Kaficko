@@ -12,24 +12,26 @@
             <h1>Kafíčko</h1>
         </header>
 
-        <main>
-            <div class="section">
-                <label for="userSelect">Kdo dnes pije?</label>
-                <select id="userSelect" required>
-                    <option value="" disabled selected>Načítání uživatelů...</option>
-                </select>
-            </div>
+        <main class="layout-grid">
+            <aside class="sidebar">
+                <div class="section">
+                    <label for="userSelect">Kdo dnes pije?</label>
+                    <select id="userSelect" required>
+                        <option value="" disabled selected>Načítání uživatelů...</option>
+                    </select>
+                </div>
 
-            <div id="drinksContainer" class="section">
-                <p>Načítání nápojů...</p>
-            </div>
+                <div class="summary-section">
+                    <strong>Dnešní skóre:</strong>
+                    <div id="dailySummaryContainer" class="summary-text">Zatím prázdno...</div>
+                </div>
 
-            <div class="summary-section">
-                <strong>Dnešní skóre:</strong>
-                <div id="dailySummaryContainer">Zatím prázdno...</div>
-            </div>
+                <button id="saveBtn" disabled>Uložit záznam (0)</button>
+            </aside>
 
-            <button id="saveBtn" disabled>Uložit záznam (0)</button>
+            <section class="drinks-section" id="drinksContainer">
+                <div class="section">Načítání nápojů...</div>
+            </section>
         </main>
     </div>
     
