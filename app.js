@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch(API + 'getTypesList').then(r => r.json())
             ]);
 
-            // Vykreslení uživatelů
             let userHtml = '<option value="" disabled selected>Vyberte osobu...</option>';
             Object.values(people).forEach(u => {
                 userHtml += `<option value="${u.ID}">${u.name}</option>`;
@@ -31,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('coffee_user');
             if (savedUser) els.user.value = savedUser;
 
-            // Vykreslení nápojů
             drinksData = Object.values(types);
             els.drinks.innerHTML = '';
             
@@ -62,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             els.user.onchange = (e) => {
                 localStorage.setItem('coffee_user', e.target.value);
                 updateSaveBtn();
+                renderSummary(); 
             };
 
             els.save.onclick = handleSave;
@@ -90,14 +89,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleSave() {
+        const userId = els.user.value;
         const payloadDrinks = drinksData
             .map(d => ({ type: d.typ, value: counts[d.typ] }))
             .filter(d => d.value > 0);
 
-        const payload = { user: els.user.value, drinks: payloadDrinks };
+        const payload = { user: userId, drinks: payloadDrinks };
         
         els.save.disabled = true;
-        saveSummary(payloadDrinks);
+        saveSummary(userId, payloadDrinks);
         renderSummary();
 
         if (!navigator.onLine) {
@@ -121,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Offline logiky ---
     function saveOffline(payload) {
         const records = JSON.parse(localStorage.getItem('coffee_offline') || '[]');
         records.push(payload);
@@ -146,34 +145,46 @@ document.addEventListener('DOMContentLoaded', () => {
         if (records.length > remaining.length) showToast('Offline záznamy odeslány!');
     }
 
-    // --- Denní přehled ---
-    function saveSummary(drinks) {
+    function saveSummary(userId, drinks) {
         const today = new Date().toISOString().split('T')[0];
-        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","data":{}}');
-        
-        if (sum.date !== today) { sum.date = today; sum.data = {}; }
-        
+        let sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
+
+        if (sum.date !== today) { 
+            sum = { date: today, users: {} }; 
+        }
+
+        if (!sum.users[userId]) {
+            sum.users[userId] = {};
+        }
+
         drinks.forEach(d => {
-            sum.data[d.type] = (sum.data[d.type] || 0) + d.value;
+            sum.users[userId][d.type] = (sum.users[userId][d.type] || 0) + d.value;
         });
+        
         localStorage.setItem('coffee_summary', JSON.stringify(sum));
     }
 
     function renderSummary() {
-        const today = new Date().toISOString().split('T')[0];
-        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","data":{}}');
+        const userId = els.user.value;
         
-        if (sum.date !== today || Object.keys(sum.data).length === 0) {
+        if (!userId) {
+            els.summary.textContent = 'Vyberte osobu...';
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
+        
+        if (sum.date !== today || !sum.users || !sum.users[userId] || Object.keys(sum.users[userId]).length === 0) {
             els.summary.textContent = 'Zatím prázdno...';
             return;
         }
         
-        els.summary.innerHTML = Object.entries(sum.data)
+        els.summary.innerHTML = Object.entries(sum.users[userId])
             .map(([type, count]) => `${count}x ${type}`)
             .join('<br>');
     }
 
-    // --- Pomocné funkce ---
     function reset() {
         Object.keys(counts).forEach(k => counts[k] = 0);
         document.querySelectorAll('.drink-card').forEach(card => {
