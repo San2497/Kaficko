@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch(API + 'getTypesList').then(r => r.json())
             ]);
 
-            // Vykreslení uživatelů
             let userHtml = '<option value="" disabled selected>Vyberte osobu...</option>';
             Object.values(people).forEach(u => {
                 userHtml += `<option value="${u.ID}">${u.name}</option>`;
@@ -31,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('coffee_user');
             if (savedUser) els.user.value = savedUser;
 
-            // Vykreslení nápojů
             drinksData = Object.values(types);
             els.drinks.innerHTML = '';
             
@@ -58,11 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 els.drinks.appendChild(card);
             });
-
-            // Při změně uživatele rovnou aktualizujeme i výpis jeho denního skóre
+            
             els.user.onchange = (e) => {
                 localStorage.setItem('coffee_user', e.target.value);
-                updateSaveBtn();
+                reset();
                 renderSummary(); 
             };
 
@@ -124,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Offline logiky ---
     function saveOffline(payload) {
         const records = JSON.parse(localStorage.getItem('coffee_offline') || '[]');
         records.push(payload);
@@ -149,26 +145,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (records.length > remaining.length) showToast('Offline záznamy odeslány!');
     }
 
-    // --- Denní přehled specifický pro uživatele ---
     function saveSummary(userId, drinks) {
         const today = new Date().toISOString().split('T')[0];
-        let sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
+        const storageKey = 'coffee_summary_' + userId;
+        let sum = JSON.parse(localStorage.getItem(storageKey) || '{"date":"","data":{}}');
         
-        // Reset Pokud je nový den
+        // Reset pokud je nový den
         if (sum.date !== today) { 
-            sum = { date: today, users: {} }; 
-        }
-        
-        // Inicializace objektu pro uživatele, pokud ještě nic nepil
-        if (!sum.users[userId]) {
-            sum.users[userId] = {};
+            sum = { date: today, data: {} }; 
         }
 
         drinks.forEach(d => {
-            sum.users[userId][d.type] = (sum.users[userId][d.type] || 0) + d.value;
+            sum.data[d.type] = (sum.data[d.type] || 0) + d.value;
         });
         
-        localStorage.setItem('coffee_summary', JSON.stringify(sum));
+        localStorage.setItem(storageKey, JSON.stringify(sum));
     }
 
     function renderSummary() {
@@ -180,20 +171,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const today = new Date().toISOString().split('T')[0];
-        const sum = JSON.parse(localStorage.getItem('coffee_summary') || '{"date":"","users":{}}');
+        const storageKey = 'coffee_summary_' + userId;
+        const sum = JSON.parse(localStorage.getItem(storageKey) || '{"date":"","data":{}}');
         
-        // Pokud není dnešní den nebo uživatel nemá žádné nápoje
-        if (sum.date !== today || !sum.users || !sum.users[userId] || Object.keys(sum.users[userId]).length === 0) {
+        if (sum.date !== today || !sum.data || Object.keys(sum.data).length === 0) {
             els.summary.textContent = 'Zatím prázdno...';
             return;
         }
         
-        els.summary.innerHTML = Object.entries(sum.users[userId])
-            .map(([type, count]) => `${count}x ${type}`)
+        els.summary.innerHTML = Object.entries(sum.data)
+            .map(([type, count]) => `<strong>${count}x</strong> ${type}`)
             .join('<br>');
     }
 
-    // --- Pomocné funkce ---
     function reset() {
         Object.keys(counts).forEach(k => counts[k] = 0);
         document.querySelectorAll('.drink-card').forEach(card => {
